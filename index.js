@@ -14,27 +14,32 @@ client
 
 const account = new Appwrite.Account(client);
 
-const authHandler = () => {
-    if (localStorage['cookieFallback']) {
+const authHandler = async() => {
+    if (localStorage['user']) {
         document.querySelector('.auth-btn-wrapper') && (document.querySelector('.auth-btn-wrapper').style.display = "none")
         logout && (logout.style.display = "flex")
     } else {
         document.querySelector('.auth-btn-wrapper') && (document.querySelector('.auth-btn-wrapper').style.display = "flex")
         logout && (logout.style.display = "none")
     }
+    const user = await account.get()
+    if(user.length){
+        const profileLink = document.createElement('a')
+        profileLink.className = 'link'
+        profileLink.src = 'profile.html'
+    }
 }
 
-logout?.addEventListener('click', ()=>{
+logout?.addEventListener('click', () => {
     localStorage.clear()
     location.reload()
 })
 
-const populateProducts = async() => {
+const populateProducts = async () => {
     const databases = new Appwrite.Databases(client);
-    databases.listDocuments('647ccc20de47586cb1ca', '647ccc34d88785a2d052', []).then(res=>{
-        console.log(res)
-        products.innerHTML = Array.from(res.documents).map(v=>{
-            return ` <div class="max-w-sm w-full card shadow-2xl m-5 bg-base-100 justify-center items-center ">
+    databases.listDocuments('647ccc20de47586cb1ca', '647ccc34d88785a2d052', []).then(res => {
+        products.innerHTML = Array.from(res.documents).map(v => {
+            return ` <div class="max-w-sm w-full card shadow-2xl m-5 bg-base-100 justify-center items-center overflow-hidden">
             <div class="h-[30vh] overflow-hidden flex items-center justify-center">
               <img src="${v.photo}" alt="${v.category}" class="w-full  ">
               </div>
@@ -49,49 +54,59 @@ const populateProducts = async() => {
             </div>
           </div>`
         })
-    }).catch(err=>console.log(err))
+    }).catch(err => console.log(err))
 }
 
 signupForm?.addEventListener('submit', async (e) => {
     e.preventDefault()
-    try {
-        if(!signupForm.querySelector('#email').value.includes('@vitstudent.ac.in')){
-            alert('Enter Valid VIT Email Address')
-            return
-        }
-        await account.create(
-            Appwrite.ID.unique(),
-            signupForm.querySelector('#email').value,
-            signupForm.querySelector('#password').value
-        );
+    if (!signupForm.querySelector('#email').value.includes('@vitstudent.ac.in')) {
+        alert('Enter Valid VIT Email Address')
+        return
+    }
+    if (signupForm.querySelector('#password').length < 8) {
+        alert('The password should be atleast 8 characters')
+        return
+    }
+    account.create(
+        Appwrite.ID.unique(),
+        signupForm.querySelector('#email').value,
+        signupForm.querySelector('#password').value
+    ).then(r => {
+        localStorage['user'] = JSON.stringify(r)
         alert("Created Account successfully")
         signupDialog.close()
-
-    } catch (error) {
+    }).then(() => {
+        setTimeout(authHandler, 500)
+    }).catch((error) => {
         console.log(error)
         alert('Seems like you already have an account. Login Instead')
         signupDialog.close()
-    } finally {
-        authHandler()
-    }
+    })
 })
 loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault()
-    try {
-        if(!loginForm.querySelector('#email').value.includes('@vitstudent.ac.in')){
-            alert('Enter Valid VIT Email Address')
-            return
-        }
-        await account.createEmailSession(
-            loginForm.querySelector('#email').value,
-            loginForm.querySelector('#password').value
-        );
+    if (!loginForm.querySelector('#email').value.includes('@vitstudent.ac.in')) {
+        alert('Enter Valid VIT Email Address')
+        return
+    }
+    if (loginForm.querySelector('#password').length < 8) {
+        alert('The password should be atleast 8 characters')
+        return
+    }
+    account.createEmailSession(
+        loginForm.querySelector('#email').value,
+        loginForm.querySelector('#password').value
+    ).then(r => {
+        localStorage['user'] = JSON.stringify(r);
         alert('Logged in successfully')
         loginDialog.close()
-    } catch (error) {
-        alert('Invalid credentials, try again.')
+    }).then(() => {
+        setTimeout(authHandler, 500)
+    }).catch((error) => {
+        console.log(error)
+        alert('Invalid credentials')
         loginDialog.close()
-    }  
+    })
 })
 
 sellForm?.addEventListener('submit', async (e) => {
@@ -100,6 +115,15 @@ sellForm?.addEventListener('submit', async (e) => {
     const [description, price, name, phone] = inputIds.map((v) => {
         return document.querySelector('#' + v).value
     })
+    if (+price <= 0) {
+        alert('Price can\'t be negative')
+        return
+    }
+    if (!phone.match(/^[6-9]{1}[0-9]{9}$/)) {
+        alert('Please enter a valid number')
+        return
+    }
+
     const category = document.querySelector('input[name="radio-10"]:checked').value;
     const photoFile = document.querySelector('#photo').files[0]
     const databases = new Appwrite.Databases(client);
@@ -131,16 +155,16 @@ localStorage['theme'] && document.querySelector('html').setAttribute("data-theme
 
 loginDialog?.addEventListener('click', function (event) {
     var rect = loginDialog.getBoundingClientRect();
-    var isInDialog=(rect.top <= event.clientY && event.clientY <= rect.top + rect.height
-      && rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+    var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height
+        && rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
     if (!isInDialog) {
         loginDialog.close();
     }
 });
 signupDialog?.addEventListener('click', function (event) {
     var rect = signupDialog.getBoundingClientRect();
-    var isInDialog=(rect.top <= event.clientY && event.clientY <= rect.top + rect.height
-      && rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+    var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height
+        && rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
     if (!isInDialog) {
         signupDialog.close();
     }
